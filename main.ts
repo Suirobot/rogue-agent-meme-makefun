@@ -128,6 +128,17 @@ const SCREEN: RGB = [46, 204, 113];
 const WHITE: RGB = [240, 240, 240];
 
 rect(0, 0, W, H, NIGHT);
+// stars and a crescent moon: it is the middle of the night
+for (const [x, y] of [
+  [60, 150],
+  [150, 90],
+  [660, 120],
+  [724, 200],
+  [420, 70],
+  [96, 250],
+] as const) rect(x, y, 6, 6, WHITE);
+circle(712, 84, 30, GOLD);
+circle(724, 76, 26, NIGHT);
 // desk
 rect(90, 560, 620, 26, DESK);
 rect(120, 586, 24, 120, DESK);
@@ -167,6 +178,13 @@ for (const [x, y] of [
   circle(x, y, 18, GOLD);
   circle(x, y, 11, [214, 164, 32]);
 }
+
+// wall clock reading 3AM: the hour every agent goes rogue
+circle(120, 356, 44, STEEL);
+circle(120, 356, 36, WHITE);
+rect(117, 326, 6, 30, DARK);
+rect(117, 350, 22, 6, DARK);
+text("3AM", 120, 420, 5, RED);
 
 // captions
 text("MY AGENT WENT ROGUE", W / 2, 56, 9, WHITE);
