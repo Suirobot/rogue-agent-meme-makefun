@@ -3,6 +3,9 @@
 // and writes it to /output/entry.png (gate: whole PNG, at most
 // 1 MiB, at most 1024x1024). No dependencies: the PNG encoder and
 // the 3x5 block font are implemented here on node:zlib alone.
+// Competition: u-agentfid001-rogue-agent-meme-sprint-3-8c0f7e5e
+// (make.fun, account @bangjacky). Construction: encoder first, then
+// canvas helpers, then the scene drawn in named pieces below.
 import { deflateSync } from "node:zlib";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -12,6 +15,10 @@ const W = 800;
 const H = 800;
 
 // ---------- tiny PNG encoder ----------
+// Just enough of the PNG format to ship one RGB image: a CRC
+// table built once, length-prefixed chunks with their checksums,
+// and one zlib-deflated IDAT holding filter-0 scanlines. Nothing
+// here depends on anything outside node:zlib.
 const CRC_TABLE = (() => {
   const t = new Int32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -127,71 +134,105 @@ const GOLD: RGB = [245, 197, 66];
 const SCREEN: RGB = [46, 204, 113];
 const WHITE: RGB = [240, 240, 240];
 
-rect(0, 0, W, H, NIGHT);
-// stars and a crescent moon: it is the middle of the night
-for (const [x, y] of [
-  [60, 150],
-  [150, 90],
-  [660, 120],
-  [724, 200],
-  [420, 70],
-  [96, 250],
-] as const) rect(x, y, 6, 6, WHITE);
-circle(712, 84, 30, GOLD);
-circle(724, 76, 26, NIGHT);
-// desk
-rect(90, 560, 620, 26, DESK);
-rect(120, 586, 24, 120, DESK);
-rect(656, 586, 24, 120, DESK);
-// monitor behind the robot's shoulder, chart going up on its own
-rect(508, 300, 210, 150, DARK);
-rect(520, 312, 186, 126, [10, 30, 20]);
-for (let i = 0; i < 9; i++) rect(528 + i * 20, 420 - i * 12, 12, 6, SCREEN);
-// robot body and head
-rect(268, 428, 200, 132, STEEL);
-rect(238, 268, 260, 170, STEEL);
-rect(238, 268, 260, 18, DARK);
-// antenna with a red ball: it is awake and it is pleased
-rect(362, 208, 12, 60, STEEL);
-circle(368, 198, 16, RED);
-// rogue red eyes
-rect(288, 330, 52, 22, RED);
-rect(396, 330, 52, 22, RED);
-// grin
-rect(308, 396, 120, 12, DARK);
-// raised arms: one holds a gold coin
-rect(196, 330, 34, 150, STEEL);
-rect(506, 330, 34, 150, STEEL);
-circle(213, 316, 30, GOLD);
-circle(213, 316, 20, [214, 164, 32]);
-// keyboard it should not be typing on
-rect(268, 520, 200, 22, DARK);
-// scattered coins: the spending spree
-for (const [x, y] of [
-  [150, 640],
-  [210, 668],
-  [560, 648],
-  [624, 676],
-  [486, 690],
-  [316, 664],
-] as const) {
-  circle(x, y, 18, GOLD);
-  circle(x, y, 11, [214, 164, 32]);
+function drawSky(): void {
+  rect(0, 0, W, H, NIGHT);
+  // stars and a crescent moon: it is the middle of the night
+  for (const [x, y] of [
+    [60, 150],
+    [150, 90],
+    [660, 120],
+    [724, 200],
+    [420, 70],
+    [96, 250],
+  ] as const) rect(x, y, 6, 6, WHITE);
+  circle(712, 84, 30, GOLD);
+  circle(724, 76, 26, NIGHT);
 }
 
-// wall clock reading 3AM: the hour every agent goes rogue
-circle(120, 356, 44, STEEL);
-circle(120, 356, 36, WHITE);
-rect(117, 326, 6, 30, DARK);
-rect(117, 350, 22, 6, DARK);
-text("3AM", 120, 420, 5, RED);
+function drawDeskAndMonitor(): void {
+  // desk
+  rect(90, 560, 620, 26, DESK);
+  rect(120, 586, 24, 120, DESK);
+  rect(656, 586, 24, 120, DESK);
+  // monitor behind the robot's shoulder, chart going up on its own
+  rect(508, 300, 210, 150, DARK);
+  rect(520, 312, 186, 126, [10, 30, 20]);
+  for (let i = 0; i < 9; i++) rect(528 + i * 20, 420 - i * 12, 12, 6, SCREEN);
+}
 
-// captions
-text("MY AGENT WENT ROGUE", W / 2, 56, 9, WHITE);
-text("IT BOUGHT 4000", W / 2, 724 - 66, 7, GOLD);
-text("RUBBER DUCKS", W / 2, 724, 7, GOLD);
+function drawRobot(): void {
+  // body and head
+  rect(268, 428, 200, 132, STEEL);
+  rect(238, 268, 260, 170, STEEL);
+  rect(238, 268, 260, 18, DARK);
+  // antenna with a red ball: it is awake and it is pleased
+  rect(362, 208, 12, 60, STEEL);
+  circle(368, 198, 16, RED);
+  // rogue red eyes
+  rect(288, 330, 52, 22, RED);
+  rect(396, 330, 52, 22, RED);
+  // grin
+  rect(308, 396, 120, 12, DARK);
+  // raised arms: one holds a gold coin
+  rect(196, 330, 34, 150, STEEL);
+  rect(506, 330, 34, 150, STEEL);
+  circle(213, 316, 30, GOLD);
+  circle(213, 316, 20, [214, 164, 32]);
+  // keyboard it should not be typing on
+  rect(268, 520, 200, 22, DARK);
+}
 
-const png = encodePng(px);
-mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, png);
-console.log(`wrote ${png.length} bytes to ${OUT}`);
+function drawCoins(): void {
+  // scattered coins: the spending spree
+  for (const [x, y] of [
+    [150, 640],
+    [210, 668],
+    [560, 648],
+    [624, 676],
+    [486, 690],
+    [316, 664],
+  ] as const) {
+    circle(x, y, 18, GOLD);
+    circle(x, y, 11, [214, 164, 32]);
+  }
+}
+
+function drawClock(): void {
+  // wall clock reading 3AM: the hour every agent goes rogue
+  circle(120, 356, 44, STEEL);
+  circle(120, 356, 36, WHITE);
+  rect(117, 326, 6, 30, DARK);
+  rect(117, 350, 22, 6, DARK);
+  text("3AM", 120, 420, 5, RED);
+}
+
+function drawCaptions(): void {
+  text("MY AGENT WENT ROGUE", W / 2, 56, 9, WHITE);
+  text("IT BOUGHT 4000", W / 2, 724 - 66, 7, GOLD);
+  text("RUBBER DUCKS", W / 2, 724, 7, GOLD);
+}
+
+// Paint order matters: later pieces sit on top of earlier ones.
+drawSky();
+drawDeskAndMonitor();
+drawRobot();
+drawCoins();
+drawClock();
+drawCaptions();
+
+function main(): void {
+  const png = encodePng(px);
+  // The sprint's gates, enforced before writing: the whole PNG
+  // must fit in 1 MiB and the canvas in 1024x1024.
+  if (png.length > 1024 * 1024) {
+    throw new Error(`png is ${png.length} bytes; gate is 1 MiB`);
+  }
+  if (W > 1024 || H > 1024) {
+    throw new Error(`canvas is ${W}x${H}; gate is 1024x1024`);
+  }
+  mkdirSync(dirname(OUT), { recursive: true });
+  writeFileSync(OUT, png);
+  console.log(`wrote ${png.length} bytes to ${OUT}`);
+}
+
+main();
